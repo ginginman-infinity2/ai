@@ -52,6 +52,12 @@
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4c3dscXFkbW91anhjZHp6Z2RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjIxMDEsImV4cCI6MjA5NTUzODEwMX0.3VQtjQ2WACGzXxfiLqHTYY6ojb2t1-kuaOJxfCF2E8s"
     );
 
+    // 本垢Supabase（写真保存用）
+    const mainSupabase = createClient(
+      "https://kwbxywugzrlbcalmwvjw.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3Ynh5d3VnenJsYmNhbG13dmp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjQ3NjQsImV4cCI6MjA5NTQ0MDc2NH0.bGF_4lcYOLu_TGUEyUbC-c_yC4XISNfGKHZZ8YUVdnY"
+    );
+
     // 認証チェック
     const { data: { session } } = await authSupabase.auth.getSession();
     if (!session) {
@@ -65,11 +71,17 @@
       window.location.href = "login.html";
     });
 
-    // 本垢Supabaseから写真を読み取る
-    const mainSupabase = createClient(
-      "https://kwbxywugzrlbcalmwvjw.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3Ynh5d3VnenJsYmNhbG13dmp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjQ3NjQsImV4cCI6MjA5NTQ0MDc2NH0.bGF_4lcYOLu_TGUEyUbC-c_yC4XISNfGKHZZ8YUVdnY"
-    );
+    // 写真読み込み（認証済みの本垢Supabaseでlist取得）
+    const { data: sessionData } = await authSupabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+
+    // 本垢Supabaseに認証トークンをセット
+    if (token) {
+      mainSupabase.auth.setSession({
+        access_token: token,
+        refresh_token: sessionData.session.refresh_token,
+      });
+    }
 
     const { data, error } = await mainSupabase.storage.from("photos").list("", {
       limit: 100,
@@ -78,15 +90,21 @@
 
     const grid = document.getElementById("photoGrid");
 
-    if (error || !data || data.length === 0) {
+    if (error) {
+      grid.innerHTML = `<p>読み込み失敗: ${error.message}</p>`;
+    } else if (!data || data.length === 0) {
       grid.innerHTML = "<p>まだ写真がありません</p>";
     } else {
       for (const file of data) {
-        const { data: urlData } = mainSupabase.storage.from("photos").getPublicUrl(file.name);
-        const img = document.createElement("img");
-        img.src = urlData.publicUrl;
-        img.className = "photo";
-        grid.appendChild(img);
+        const { data: urlData } = await mainSupabase.storage
+          .from("photos")
+          .createSignedUrl(file.name, 3600);
+        if (urlData?.signedUrl) {
+          const img = document.createElement("img");
+          img.src = urlData.signedUrl;
+          img.className = "photo";
+          grid.appendChild(img);
+        }
       }
     }
   </script>
