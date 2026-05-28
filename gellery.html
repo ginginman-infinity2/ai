@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ギャラリー</title>
+  <style>
+    body {
+      font-family: "Helvetica", sans-serif;
+      background: #111;
+      text-align: center;
+      padding: 20px;
+      color: white;
+    }
+    h1 { color: #fff; }
+    .photo {
+      margin: 10px;
+      border-radius: 10px;
+      width: 220px;
+    }
+    .grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    p { color: #aaa; }
+    .logout-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <button class="logout-btn" id="logoutBtn">ログアウト</button>
+  <h1>📸 ギャラリー</h1>
+  <p>撮影された写真一覧</p>
+  <div id="photoGrid" class="grid"></div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    // 新Supabase（認証用）
+    const authSupabase = createClient(
+      "https://qxswlqqdmoujxcdzzgdj.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4c3dscXFkbW91anhjZHp6Z2RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjIxMDEsImV4cCI6MjA5NTUzODEwMX0.3VQtjQ2WACGzXxfiLqHTYY6ojb2t1-kuaOJxfCF2E8s"
+    );
+
+    // 認証チェック
+    const { data: { session } } = await authSupabase.auth.getSession();
+    if (!session) {
+      window.location.href = "login.html";
+      throw new Error("ログインが必要です");
+    }
+
+    // ログアウト
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await authSupabase.auth.signOut();
+      window.location.href = "login.html";
+    });
+
+    // 本垢Supabaseから写真を読み取る
+    const mainSupabase = createClient(
+      "https://kwbxywugzrlbcalmwvjw.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3Ynh5d3VnenJsYmNhbG13dmp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjQ3NjQsImV4cCI6MjA5NTQ0MDc2NH0.bGF_4lcYOLu_TGUEyUbC-c_yC4XISNfGKHZZ8YUVdnY"
+    );
+
+    const { data, error } = await mainSupabase.storage.from("photos").list("", {
+      limit: 100,
+      sortBy: { column: "created_at", order: "desc" },
+    });
+
+    const grid = document.getElementById("photoGrid");
+
+    if (error || !data || data.length === 0) {
+      grid.innerHTML = "<p>まだ写真がありません</p>";
+    } else {
+      for (const file of data) {
+        const { data: urlData } = mainSupabase.storage.from("photos").getPublicUrl(file.name);
+        const img = document.createElement("img");
+        img.src = urlData.publicUrl;
+        img.className = "photo";
+        grid.appendChild(img);
+      }
+    }
+  </script>
+</body>
+</html>
