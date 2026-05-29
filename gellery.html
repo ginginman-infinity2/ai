@@ -21,15 +21,15 @@
 <body>
   <div class="login-overlay" id="loginOverlay">
     <div class="login-box">
-      <h3>🔑 合言葉を入力</h3>
-      <input type="password" id="secretKey" placeholder="合言葉" />
+      <h3>🔑 keyを入力</h3>
+      <input type="password" id="secretKey" placeholder="key" />
       <button id="loginBtn">確認</button>
       <p class="login-error" id="loginError"></p>
     </div>
   </div>
 
   <div id="mainContent" style="display:none;">
-    <button class="logout-btn" id="logoutBtn">閉じる</button>
+    <button class="logout-btn" id="logoutBtn">ログアウト</button>
     <h1>📸 ギャラリー</h1>
     <p>撮影された写真一覧</p>
     <div id="photoGrid" class="grid"></div>
@@ -55,7 +55,7 @@
         .single();
 
       if (error || !data) {
-        document.getElementById("loginError").textContent = "合言葉が違います";
+        document.getElementById("loginError").textContent = "keyが違います";
       } else {
         loginOverlay.style.display = "none";
         mainContent.style.display = "block";
