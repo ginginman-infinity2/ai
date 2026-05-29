@@ -5,103 +5,91 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ギャラリー</title>
   <style>
-    body {
-      font-family: "Helvetica", sans-serif;
-      background: #111;
-      text-align: center;
-      padding: 20px;
-      color: white;
-    }
+    body { font-family: "Helvetica", sans-serif; background: #111; text-align: center; padding: 20px; color: white; }
     h1 { color: #fff; }
-    .photo {
-      margin: 10px;
-      border-radius: 10px;
-      width: 220px;
-    }
-    .grid {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
+    .photo { margin: 10px; border-radius: 10px; width: 220px; }
+    .grid { display: flex; flex-wrap: wrap; justify-content: center; }
     p { color: #aaa; }
-    .logout-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: #ef4444;
-      color: white;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+    .logout-btn { position: absolute; top: 10px; right: 10px; background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+    .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 999; }
+    .login-box { background: #1e1e1e; padding: 30px; border-radius: 12px; text-align: center; width: 280px; color: white; }
+    .login-box input { width: 100%; padding: 10px; margin: 8px 0; border-radius: 6px; border: 1px solid #444; background: #2a2a2a; color: white; box-sizing: border-box; font-size: 1.2rem; text-align: center; }
+    .login-box button { width: 100%; padding: 10px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; margin-top: 10px; }
+    .login-error { color: #ef4444; font-size: 13px; margin-top: 8px; }
   </style>
 </head>
 <body>
-  <button class="logout-btn" id="logoutBtn">ログアウト</button>
-  <h1>📸 ギャラリー</h1>
-  <p>撮影された写真一覧</p>
-  <div id="photoGrid" class="grid"></div>
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <h3>🔑 合言葉を入力</h3>
+      <input type="password" id="secretKey" placeholder="合言葉" />
+      <button id="loginBtn">確認</button>
+      <p class="login-error" id="loginError"></p>
+    </div>
+  </div>
+
+  <div id="mainContent" style="display:none;">
+    <button class="logout-btn" id="logoutBtn">閉じる</button>
+    <h1>📸 ギャラリー</h1>
+    <p>撮影された写真一覧</p>
+    <div id="photoGrid" class="grid"></div>
+  </div>
 
   <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-    // 新Supabase（認証用）
-    const authSupabase = createClient(
-      "https://qxswlqqdmoujxcdzzgdj.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4c3dscXFkbW91anhjZHp6Z2RqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjIxMDEsImV4cCI6MjA5NTUzODEwMX0.3VQtjQ2WACGzXxfiLqHTYY6ojb2t1-kuaOJxfCF2E8s"
-    );
-
-    // 本垢Supabase（写真保存用）
-    const mainSupabase = createClient(
+    const supabase = createClient(
       "https://kwbxywugzrlbcalmwvjw.supabase.co",
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3Ynh5d3VnenJsYmNhbG13dmp3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4NjQ3NjQsImV4cCI6MjA5NTQ0MDc2NH0.bGF_4lcYOLu_TGUEyUbC-c_yC4XISNfGKHZZ8YUVdnY"
     );
 
-    // 認証チェック
-    const { data: { session } } = await authSupabase.auth.getSession();
-    if (!session) {
-      window.location.href = "login.html";
-      throw new Error("ログインが必要です");
-    }
+    const loginOverlay = document.getElementById("loginOverlay");
+    const mainContent = document.getElementById("mainContent");
 
-    // ログアウト
-    document.getElementById("logoutBtn").addEventListener("click", async () => {
-      await authSupabase.auth.signOut();
-      window.location.href = "login.html";
+    document.getElementById("loginBtn").addEventListener("click", async () => {
+      const key = document.getElementById("secretKey").value;
+
+      const { data, error } = await supabase
+        .from("access_keys")
+        .select("secret_key")
+        .eq("secret_key", key)
+        .single();
+
+      if (error || !data) {
+        document.getElementById("loginError").textContent = "合言葉が違います";
+      } else {
+        loginOverlay.style.display = "none";
+        mainContent.style.display = "block";
+        loadPhotos();
+      }
     });
 
-    // 写真読み込み（認証済みの本垢Supabaseでlist取得）
-    const { data: sessionData } = await authSupabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      location.reload();
+    });
 
-    // 本垢Supabaseに認証トークンをセット
-    if (token) {
-      mainSupabase.auth.setSession({
-        access_token: token,
-        refresh_token: sessionData.session.refresh_token,
+    async function loadPhotos() {
+      const { data, error } = await supabase.storage.from("photos").list("", {
+        limit: 100,
+        sortBy: { column: "created_at", order: "desc" },
       });
-    }
 
-    const { data, error } = await mainSupabase.storage.from("photos").list("", {
-      limit: 100,
-      sortBy: { column: "created_at", order: "desc" },
-    });
+      const grid = document.getElementById("photoGrid");
 
-    const grid = document.getElementById("photoGrid");
+      if (error) {
+        grid.innerHTML = `<p>読み込み失敗</p>`;
+        return;
+      }
+      if (!data || data.length === 0) {
+        grid.innerHTML = "<p>まだ写真がありません</p>";
+        return;
+      }
 
-    if (error) {
-      grid.innerHTML = `<p>読み込み失敗: ${error.message}</p>`;
-    } else if (!data || data.length === 0) {
-      grid.innerHTML = "<p>まだ写真がありません</p>";
-    } else {
+      grid.innerHTML = "";
       for (const file of data) {
-        const { data: urlData } = await mainSupabase.storage
-          .from("photos")
-          .createSignedUrl(file.name, 3600);
-        if (urlData?.signedUrl) {
+        const { data: urlData } = supabase.storage.from("photos").getPublicUrl(file.name);
+        if (urlData?.publicUrl) {
           const img = document.createElement("img");
-          img.src = urlData.signedUrl;
+          img.src = urlData.publicUrl;
           img.className = "photo";
           grid.appendChild(img);
         }
