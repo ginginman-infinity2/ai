@@ -76,7 +76,7 @@
       const grid = document.getElementById("photoGrid");
 
       if (error) {
-        grid.innerHTML = `<p>読み込み失敗</p>`;
+        grid.innerHTML = `<p>読み込み失敗: ${error.message}</p>`;
         return;
       }
       if (!data || data.length === 0) {
@@ -86,10 +86,14 @@
 
       grid.innerHTML = "";
       for (const file of data) {
-        const { data: urlData } = supabase.storage.from("photos").getPublicUrl(file.name);
-        if (urlData?.publicUrl) {
+        // 署名付きURLを生成（1時間有効）
+        const { data: signedData } = await supabase.storage
+          .from("photos")
+          .createSignedUrl(file.name, 3600);
+
+        if (signedData?.signedUrl) {
           const img = document.createElement("img");
-          img.src = urlData.publicUrl;
+          img.src = signedData.signedUrl;
           img.className = "photo";
           grid.appendChild(img);
         }
